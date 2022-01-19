@@ -91,7 +91,7 @@ def main():
         if start is not None:
             vad_segs.append((start, len(wav)))
 
-        print(" ".join(f"{v[0]}:{v[1]}" for v in vad_segs))
+        print(" ".join(f"{v[0]}:{v[1]}" for v in vad_segs)) # will output to train.vads. Each line looks like => start_1:end_1 start_2:end_2 start_3:end_3 
 
 
 if __name__ == "__main__":
