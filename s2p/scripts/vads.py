@@ -24,6 +24,20 @@ def get_parser():
         help="path to rvad home (see https://github.com/zhenghuatan/rVADfast)",
         required=True,
     )
+    parser.add_argument(
+        "--start",
+        '-s',
+        type=int,
+        default=1,
+        help="index to start vad segmentation"
+    )
+    parser.add_argument(
+        "--end",
+        "-e",
+        type=int,
+        default=-1,
+        help="index to end vad segmentation"
+    )
 
     return parser
 
@@ -76,7 +90,11 @@ def main():
     stride = 160
     lines = sys.stdin.readlines()
     root = lines[0].rstrip()
-    for fpath in tqdm(lines[1:]):
+
+    i_start = max(1, min(len(lines)-1, args.start))
+    i_end = len(lines) if args.end==-1 else max(1, min(len(lines), args.end))
+    lines = lines[i_start:i_end]
+    for fpath in tqdm(lines):
         path = osp.join(root, fpath.split()[0])
         vads, wav = rvad(speechproc, path)
 
