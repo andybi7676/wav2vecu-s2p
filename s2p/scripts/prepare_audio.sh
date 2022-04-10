@@ -28,7 +28,7 @@ echo "extracting from layer $layer"
 
 train_split=train
 valid_split=valid
-test_split=test
+test_split=asr_test
 
 all_splits=($train_split)
 
@@ -36,8 +36,8 @@ if [[ -f "$source_dir/valid.tsv" ]]; then
     all_splits+=('valid')
 fi
 
-if [[ -f "$source_dir/test.tsv" ]]; then
-    all_splits+=('test')
+if [[ -f "$source_dir/$test_split.tsv" ]]; then
+    all_splits+=($test_split)
 fi
 
 echo "processing splits: $all_splits"
@@ -45,27 +45,33 @@ echo "processing splits: $all_splits"
 mkdir -p $tgt_dir
 
 cp $source_dir/*.tsv $tgt_dir
-cp $source_dir/*.wrd $tgt_dir
-cp $source_dir/*.ltr $tgt_dir
-cp $source_dir/*.phn $tgt_dir
-cp $source_dir/dict* $tgt_dir
+# cp $source_dir/*.wrd $tgt_dir
+# cp $source_dir/*.ltr $tgt_dir
+# cp $source_dir/*.phn $tgt_dir
+# cp $source_dir/dict* $tgt_dir
 
 setopt shwordsplit
+# set -o shwordsplit
 
 for split in $all_splits; do
   python $FAIRSEQ_ROOT/examples/wav2vec/unsupervised/scripts/wav2vec_extract_features.py $source_dir --split $split \
   --save-dir $tgt_dir --checkpoint $model --layer $layer
 done
+echo "Finished extract features."
 
-python $FAIRSEQ_ROOT/examples/wav2vec/unsupervised/scripts/wav2vec_cluster_faiss.py $tgt_dir/${train_split}.tsv \
+echo "Clustering..."
+python scripts/wav2vec_cluster_faiss.py $tgt_dir/${train_split}.tsv \
 --checkpoint $model --save-dir $tgt_dir -f "CLUS128" --sample-pct 1.0
+echo "Finished clustering."
 
 for split in $all_splits; do
-  python $FAIRSEQ_ROOT/examples/wav2vec/unsupervised/scripts/wav2vec_apply_cluster_faiss.py $tgt_dir \
+  python scripts/wav2vec_apply_cluster_faiss.py $tgt_dir \
   --checkpoint $model --path $tgt_dir/CLUS128 --split $split
 done
+echo "Applied cluster features."
 
 python $FAIRSEQ_ROOT/examples/wav2vec/unsupervised/scripts/pca.py $tgt_dir/${train_split}.npy --output $tgt_dir/pca --dim $dim
+echo "Ran PCA."
 
 for split in $all_splits; do
   python $FAIRSEQ_ROOT/examples/wav2vec/unsupervised/scripts/apply_pca.py $tgt_dir --split $split --save-dir $tgt_dir/precompute_pca$dim --pca-path $tgt_dir/pca/${dim}_pca --batch-size 1048000
@@ -76,3 +82,5 @@ for split in $all_splits; do
   python $FAIRSEQ_ROOT/examples/wav2vec/unsupervised/scripts/mean_pool.py $tgt_dir/precompute_pca${dim}_cls128_mean \
   --save-dir $tgt_dir/precompute_pca${dim}_cls128_mean_pooled --split $split
 done
+
+echo "Post processed."
