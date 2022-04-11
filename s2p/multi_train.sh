@@ -1,7 +1,7 @@
 PREFIX=w2v_unsup_gan_xp
-TASK_DATA=/work/b07502072/corpus/u-s2s/audio/features/large_noisy/precompute_pca512_cls128_mean_pooled
-TEXT_DATA=/work/b07502072/corpus/u-s2s/text/wiki/en/wiki_3/prep/phones
-KENLM_PATH=/work/b07502072/corpus/u-s2s/text/wiki/en/wiki_3/prep/phones/lm.phones.filtered.04.bin
+TASK_DATA=/work/b07502072/corpus/u-s2p/audio/large_clean/precompute_pca512_cls128_mean_pooled
+TEXT_DATA=/work/b07502072/corpus/u-s2p/text/wiki_2/phones
+KENLM_PATH=/work/b07502072/corpus/u-s2p/text/wiki_2/phones/lm.phones.filtered.04.bin
 export HYDRA_FULL_ERROR=1
 
 PYTHONPATH=$FAIRSEQ_ROOT PREFIX=$PREFIX fairseq-hydra-train \
@@ -16,4 +16,4 @@ PYTHONPATH=$FAIRSEQ_ROOT PREFIX=$PREFIX fairseq-hydra-train \
     model.smoothness_weight=0.5,0.75,1.0  \
     distributed_training.distributed_world_size=1 'common.seed=range(0,5)' \
     optimization.max_update=150000 \
-    +description="large_noisy_wiki_3_test"
+    +description="large_noisy_wiki_2_test"
