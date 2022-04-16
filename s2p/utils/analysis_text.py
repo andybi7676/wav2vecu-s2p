@@ -3,6 +3,11 @@ import os
 f_path = '/work/b07502072/corpus/u-s2s/text/voxpopuli_trans/asr_train.txt'
 f_path = '/work/b07502072/corpus/u-s2s/text/wiki/en/wiki_2_7.txt'
 f_path = '/work/b07502072/corpus/u-s2s/text/wiki/en/wiki_1_7/wiki_1_7.txt'
+f_path = '/work/b07502072/corpus/test_kaggle/u-s2p/text/wiki_3/phones/lm.phones.filtered.txt'
+f_path = '/work/b07502072/corpus/test_kaggle/u-s2p/text/wiki_1-5/phones/lm.phones.filtered.txt'
+f_path = '/work/b07502072/corpus/test_kaggle/u-s2p/text/wiki_2/phones/lm.phones.filtered.txt'
+f_path = '/work/b07502072/corpus/test_kaggle/u-s2p/text/voxpopuli_trans/phones/lm.phones.filtered.txt'
+f_path = '/work/b07502072/corpus/test_kaggle/u-s2p/text/marc/phones/lm.phones.filtered.txt'
 
 with open(f_path, 'r') as fr:
     total_line = 0

@@ -290,19 +290,37 @@ class Generator(nn.Module):
         self.dropout = nn.Dropout(cfg.generator_dropout)
 
         padding = cfg.generator_kernel // 2
-        self.proj = nn.Sequential(
-            TransposeLast(),
-            nn.Conv1d(
-                input_dim,
-                output_dim,
-                kernel_size=cfg.generator_kernel,
-                stride=cfg.generator_stride,
-                dilation=cfg.generator_dilation,
-                padding=padding,
-                bias=cfg.generator_bias,
-            ),
-            TransposeLast(),
-        )
+        if self.cfg.generator_bn.apply:
+            self.proj = nn.Sequential(
+                TransposeLast(),
+                nn.BatchNorm1d(input_dim),
+                nn.Conv1d(
+                    input_dim,
+                    output_dim,
+                    kernel_size=cfg.generator_kernel,
+                    stride=cfg.generator_stride,
+                    dilation=cfg.generator_dilation,
+                    padding=padding,
+                    bias=cfg.generator_bias,
+                ),
+                TransposeLast(),
+            )
+            # self.proj[1].weight = Parameter(torch.ones(100)*cfg.generator_bn.init_weight)
+            # self.proj[1].running_var *= cfg.generator_bn.init_weight
+        else:
+            self.proj = nn.Sequential(
+                TransposeLast(),
+                nn.Conv1d(
+                    input_dim,
+                    output_dim,
+                    kernel_size=cfg.generator_kernel,
+                    stride=cfg.generator_stride,
+                    dilation=cfg.generator_dilation,
+                    padding=padding,
+                    bias=cfg.generator_bias,
+                ),
+                TransposeLast(),
+            )
 
     def forward(self, dense_x, tokens, dense_padding_mask):
         dense_x = self.dropout(dense_x)
