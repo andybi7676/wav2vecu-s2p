@@ -665,7 +665,7 @@ def main(cfg: UnsupGenerateConfig, model=None):
 
 
 @hydra.main(
-    config_path=os.path.join("../../..", "fairseq", "config"), config_name="config"
+    config_path=os.path.join("/home/b07502072/fairseq", "fairseq", "config"), config_name="config"
 )
 def hydra_main(cfg):
     with open_dict(cfg):

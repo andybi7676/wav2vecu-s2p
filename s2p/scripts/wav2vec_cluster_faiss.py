@@ -133,9 +133,12 @@ def main():
     faiss_specs = parse_faiss_specs(args.faiss_specs)
     print("Faiss Specs:", faiss_specs)
 
-    feat_path = osp.join(args.save_dir, "features")
+    feat_path = osp.join(args.save_dir, "train")
+    # print(feat_path)
     if osp.exists(feat_path + ".npy"):
+        print(f"loading features in {feat_path} to do clustering...")
         feats = np.load(feat_path + ".npy")
+        print(f"loaded features in {feat_path}.")
     else:
         generator, num = get_iterator(args)
         iterator = generator()
