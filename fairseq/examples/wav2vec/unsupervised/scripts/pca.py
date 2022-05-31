@@ -31,11 +31,15 @@ def main():
     args = parser.parse_args()
 
     print("Reading features")
-    x = np.load(args.data, mmap_mode="r")
-    print(x.shape)
-    # idx = np.random.choice(x.shape[0], size=1000000, replace=False)
-    # print(idx.shape)
-    x = x[0:1000000]
+    # x = np.load(args.data, mmap_mode="r") # found using mmap_mode will cause infinite running time, but still don't know why. 
+    x = np.load(args.data)
+    threshold = 100000000
+    print(f"Shape of x: {x.shape}, Over-threshold: {len(x) > threshold}")
+    if(len(x) > threshold):
+        print("Randomly choosing indices")
+        indices = np.random.choice(x.shape[0], threshold, replace=False)
+        x = x[indices]
+        print(f"Finished sampling x, shape of x: {x.shape}")
 
     print("Computing PCA")
     pca = faiss.PCAMatrix(x.shape[-1], args.dim, args.eigen_power)

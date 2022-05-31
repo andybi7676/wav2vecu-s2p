@@ -1,8 +1,8 @@
 import os
 import pandas as pd
 
-file_path = '/work/b07502072/corpus/u-s2s/audio/transcribed_data/en/asr_train.tsv'
-out_dir = '/work/b07502072/corpus/u-s2s/text/voxpopuli_trans'
+file_path = '/work/b07502072/corpus/u-s2s/audio/transcribed_data/de/asr_train.tsv'
+out_dir = '/work/b07502072/corpus/u-s2s/text/voxpopuli_trans/de_new'
 os.makedirs(out_dir, exist_ok=True)
 out_fname='asr_train.txt'
 

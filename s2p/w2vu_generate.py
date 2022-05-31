@@ -196,6 +196,8 @@ def process_predictions(
 
         if "words" in hypo and len(hypo["words"]) > 0:
             hyp_words = " ".join(hypo["words"])
+            if "<SIL>" in hyp_words:
+                hyp_words = post_process(hyp_words, cfg.post_process)
         else:
             hyp_words = post_process(hyp_pieces, cfg.post_process)
 
@@ -393,12 +395,16 @@ def generate(cfg: UnsupGenerateConfig, models, saved_cfg, use_cuda):
     )
     targets = None
     if cfg.targets is not None:
-        tgt_path = os.path.join(
-            cfg.fairseq.task.data, cfg.fairseq.dataset.gen_subset + "." + cfg.targets
-        )
+        # tgt_path = os.path.join(
+        #     cfg.fairseq.task.data, cfg.fairseq.dataset.gen_subset + "." + cfg.targets
+        # )
+        tgt_path = cfg.targets
         if os.path.exists(tgt_path):
             with open(tgt_path, "r") as f:
                 targets = f.read().splitlines()
+            print(f"Found target file: {tgt_path}")
+        else:
+            print(f"Can not found target file: {tgt_path}")
     viterbi_transcript = None
     if cfg.viterbi_transcript is not None and len(cfg.viterbi_transcript) > 0:
         logger.info(f"loading viterbi transcript from {cfg.viterbi_transcript}")
@@ -665,7 +671,7 @@ def main(cfg: UnsupGenerateConfig, model=None):
 
 
 @hydra.main(
-    config_path=os.path.join("/home/b07502072/fairseq", "fairseq", "config"), config_name="config"
+    config_path=os.path.join("/home/b07502072/u-speech2speech/fairseq", "fairseq", "config"), config_name="config"
 )
 def hydra_main(cfg):
     with open_dict(cfg):

@@ -30,10 +30,14 @@ train_split=train
 valid_split=valid
 test_split=asr_test
 
-all_splits=($train_split)
+all_splits=()
+
+if [[ -f "$source_dir/train.tsv" ]]; then
+    all_splits+=($train_split)
+fi
 
 if [[ -f "$source_dir/valid.tsv" ]]; then
-    all_splits+=('valid')
+    all_splits+=($valid_split)
 fi
 
 if [[ -f "$source_dir/$test_split.tsv" ]]; then

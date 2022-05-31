@@ -60,6 +60,8 @@ def main(cfg: FairseqConfig) -> None:
         cfg.dataset.max_tokens is not None or cfg.dataset.batch_size is not None
     ), "Must specify batch size either with --max-tokens or --batch-size"
     metrics.reset()
+    if hasattr(checkpoint_utils.save_checkpoint, "best"):
+        del checkpoint_utils.save_checkpoint.best
 
     if cfg.common.log_file is not None:
         handler = logging.FileHandler(filename=cfg.common.log_file)
@@ -394,7 +396,7 @@ def validate_and_save(
     should_stop |= should_stop_early(cfg, valid_losses[0])
 
     # Save checkpoint
-    if do_save or should_stop:
+    if do_save or should_stop or do_validate:
         checkpoint_utils.save_checkpoint(
             cfg.checkpoint, trainer, epoch_itr, valid_losses[0]
         )

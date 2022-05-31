@@ -344,10 +344,11 @@ class TensorboardProgressBarWrapper(BaseProgressBar):
         if SummaryWriter is None:
             return None
         _writers = _tensorboard_writers
-        if key not in _writers:
-            _writers[key] = SummaryWriter(os.path.join(self.tensorboard_logdir, key))
-            _writers[key].add_text("sys.argv", " ".join(sys.argv))
-        return _writers[key]
+        abs_key = '__'.join([os.getcwd(), self.tensorboard_logdir, key])
+        if abs_key not in _writers:
+            _writers[abs_key] = SummaryWriter(os.path.join(self.tensorboard_logdir, key))
+            _writers[abs_key].add_text("sys.argv", " ".join(sys.argv))
+        return _writers[abs_key]
 
     def __iter__(self):
         return iter(self.wrapped_bar)

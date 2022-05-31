@@ -13,6 +13,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch import autograd
+from torch.nn.parameter import Parameter
 
 from fairseq import checkpoint_utils, utils
 from fairseq.dataclass import FairseqDataclass
@@ -60,12 +61,17 @@ class Wav2vec_UConfig(FairseqDataclass):
     generator_stride: int = 1
     generator_bias: bool = False
     generator_dropout: float = 0.0
+    generator_bn_apply: bool = False
+    generator_bn_init_weight: float = 30.0
+    generator_ln_apply: bool = False
+    generator_ln_output_dim: int = 512
 
     blank_weight: float = 0
     blank_mode: str = "add"
     blank_is_sil: bool = False
     no_softmax: bool = False
 
+    ncritic: int = 1
     smoothness_weight: float = 0.0
     smoothing: float = 0.0
     smoothing_one_sided: bool = False
@@ -288,12 +294,28 @@ class Generator(nn.Module):
         self.output_dim = output_dim
         self.stride = cfg.generator_stride
         self.dropout = nn.Dropout(cfg.generator_dropout)
+        cnn_input_dim = input_dim
 
         padding = cfg.generator_kernel // 2
+        preprocess = [ TransposeLast() ]
+        if cfg.generator_bn_apply:
+            bn = nn.BatchNorm1d(input_dim)
+            bn.weight = Parameter(torch.ones(input_dim)*cfg.generator_bn_init_weight)
+            bn.running_var *= cfg.generator_bn_init_weight
+            preprocess.append(bn)
+        if cfg.generator_ln_apply:
+            assert cfg.generator_ln_output_dim > 0, "Invalid generator linear layer output dim!"
+            ln = nn.Linear(input_dim, cfg.generator_ln_output_dim)
+            preprocess += [
+                TransposeLast(),
+                ln,
+                TransposeLast()
+            ]
+            cnn_input_dim = cfg.generator_ln_output_dim
         self.proj = nn.Sequential(
-            TransposeLast(),
+            *preprocess,
             nn.Conv1d(
-                input_dim,
+                cnn_input_dim,
                 output_dim,
                 kernel_size=cfg.generator_kernel,
                 stride=cfg.generator_stride,
@@ -396,7 +418,7 @@ class Wav2vec_U(BaseFairseqModel):
         )
 
     def discrim_step(self, num_updates):
-        return num_updates % 2 == 1
+        return num_updates % (self.ncritic+1) != 0
 
     def get_groups_for_update(self, num_updates):
         return "discriminator" if self.discrim_step(num_updates) else "generator"
@@ -411,6 +433,7 @@ class Wav2vec_U(BaseFairseqModel):
         output_size = len(target_dict)
         self.pad = target_dict.pad()
         self.eos = target_dict.eos()
+        self.ncritic = cfg.ncritic
         self.smoothing = cfg.smoothing
         self.smoothing_one_sided = cfg.smoothing_one_sided
         self.no_softmax = cfg.no_softmax

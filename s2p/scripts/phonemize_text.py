@@ -12,15 +12,20 @@ def main():
 
     lang = args.lang
     root = args.root
+    fname = args.fname
     sep = Separator(phone=' ', syllable='', word='')
-
-    word_path = os.path.join(root, "words.txt")
-    out_path = os.path.join(root, "phones.txt")
+    if fname != '':
+        word_path = os.path.join(root, fname+".words.txt")
+        out_path = os.path.join(root, fname+".phones.txt")
+    else:
+        word_path = os.path.join(root, "words.txt")
+        out_path = os.path.join(root, "phones.txt")
 
     phones = []
     with open(word_path, 'r') as fr:
         words = [line.strip() for line in fr]
         phones = [ ph.strip() for ph in phonemize(words, language=lang, separator=sep)]
+        phones = [ph.replace('  ', ' ') for ph in phones]
 
     with open(out_path, 'w') as fw:
         for ph in phones:
@@ -32,6 +37,7 @@ def get_parser():
     )
     # fmt: off
     parser.add_argument('root', help='root dir of input words.txt and phones.txt')
+    parser.add_argument('--fname', default='', help='file name of input words.txt and phones.txt')
     parser.add_argument('--lang', help='language to be converted.', default='en-us')
 
     return parser

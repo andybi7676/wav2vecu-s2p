@@ -3,7 +3,7 @@ import yaml
 from glob import glob
 import pandas as pd
 
-len_for_bucket_root = '/home/b07502072/u-speech2speech/s2p/data/manifest'
+len_for_bucket_root = '/home/b07502072/u-speech2speech/s2p/data/manifest/en/shuffled'
 
 def get_csv_fpath(root, csv_pths):
     for path in glob(os.path.join(root, "*")):

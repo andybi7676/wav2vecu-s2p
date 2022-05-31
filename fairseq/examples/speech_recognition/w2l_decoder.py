@@ -51,6 +51,9 @@ class W2lDecoder(object):
         self.tgt_dict = tgt_dict
         self.vocab_size = len(tgt_dict)
         self.nbest = args.nbest
+        print("------------------------dict-----------------------")
+        print(self.tgt_dict.indices)
+        print("------------------------dict-----------------------")
 
         # criterion-specific init
         self.criterion_type = CriterionType.CTC
@@ -63,6 +66,8 @@ class W2lDecoder(object):
             self.silence = tgt_dict.index("<sep>")
         elif "|" in tgt_dict.indices:
             self.silence = tgt_dict.index("|")
+        elif "<SIL>" in tgt_dict.indices:
+            self.silence = tgt_dict.index("<SIL>")
         else:
             self.silence = tgt_dict.eos()
         self.asg_transitions = None
@@ -133,7 +138,10 @@ class W2lKenLMDecoder(W2lDecoder):
             self.word_dict = create_word_dict(self.lexicon)
             self.unk_word = self.word_dict.get_index("<unk>")
 
-            self.lm = KenLM(args.kenlm_model, self.word_dict)
+            model_path = args.get('kenlm_model', args.get('lm_model', None))
+            print(f"kenlm model path: {model_path}")
+            assert model_path, f"No valid kenlm model path!"
+            self.lm = KenLM(model_path, self.word_dict)
             self.trie = Trie(self.vocab_size, self.silence)
 
             start_state = self.lm.start(False)

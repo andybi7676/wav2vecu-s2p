@@ -98,9 +98,8 @@ model:
   generator_kernel: 4
   generator_bias: false
   generator_dropout: 0.1
-  generator_bn: 
-    apply: true
-    init_weight: 30
+  generator_bn_apply: true  
+  generator_bn_init_weight: 30
 
   smoothness_weight: 0.5
   smoothing: 0

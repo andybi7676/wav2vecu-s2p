@@ -1,7 +1,4 @@
 # @package _group_
-hydra:
-  sweep:
-    subdir: cp${model.code_penalty}_gp${model.gradient_penalty}_sw${model.smoothness_weight}/seed${common.seed}
 
 common:
   fp16: false
@@ -13,8 +10,8 @@ common:
   suppress_crashes: false
 
 checkpoint:
-  save_interval: 10000
-  save_interval_updates: 10000
+  save_interval: 1000
+  save_interval_updates: 1000
   no_epoch_checkpoints: true
   best_checkpoint_metric: weighted_lm_ppl
   save_dir: .
@@ -38,8 +35,8 @@ dataset:
   batch_size: 160
   skip_invalid_size_inputs_valid_test: true
   valid_subset: valid
-  validate_interval: 500
-  validate_interval_updates: 500
+  validate_interval: 1000
+  validate_interval_updates: 1000
 
 criterion:
   _name: model
@@ -97,12 +94,14 @@ model:
   discriminator_dropout: 0.0
   discriminator_weight_norm: false
 
-  generator_stride: 1
-  generator_kernel: 4
+  generator_stride: 3
+  generator_kernel: 12
   generator_bias: false
   generator_dropout: 0.1
+  generator_bn_apply: true  
+  generator_bn_init_weight: 30
+  generator_ln_apply: false
 
-  ncritic: 1 # num of updates per generator update. default: 1
   smoothness_weight: 0.5
   smoothing: 0
   smoothing_one_sided: false
@@ -111,7 +110,7 @@ model:
   gradient_penalty: 1.5
   code_penalty: 4.0
   temp: [ 2,0.1,0.99995 ]
-  input_dim: 512
+  input_dim: 1024
 
   segmentation:
     type: JOIN
