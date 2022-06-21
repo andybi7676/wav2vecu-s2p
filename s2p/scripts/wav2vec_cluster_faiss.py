@@ -12,6 +12,7 @@ import random
 import numpy as np
 import tqdm
 import torch
+import torch.nn.functional as F
 
 from collections import namedtuple
 
@@ -19,6 +20,7 @@ import faiss
 
 import fairseq
 import soundfile as sf
+from wav2vec_extract_features import Wav2VecFeatureReader
 
 
 def get_parser():
@@ -69,42 +71,6 @@ def parse_faiss_specs(specs_str):
             faiss_spec(pca=pca, norm=norm, n_clus=n_clus, sphere=sphere, spec_str=ss)
         )
     return specs
-
-
-class Wav2VecFeatureReader(object):
-    def __init__(self, cp_file, layer):
-        state = fairseq.checkpoint_utils.load_checkpoint_to_cpu(cp_file)
-
-        self.layer = layer
-
-        if "cfg" in state:
-            w2v_args = state["cfg"]
-            task = fairseq.tasks.setup_task(w2v_args.task)
-            model = task.build_model(w2v_args.model)
-        else:
-            w2v_args = state["args"]
-            task = fairseq.tasks.setup_task(w2v_args)
-            model = task.build_model(w2v_args)
-        model.load_state_dict(state["model"], strict=True)
-        model.eval()
-        model.cuda()
-        self.model = model
-
-    def read_audio(self, fname):
-        """Load an audio file and return PCM along with the sample rate"""
-        wav, sr = sf.read(fname)
-        assert sr == 16e3
-
-        return wav
-
-    def get_feats(self, loc):
-        x = self.read_audio(loc)
-        with torch.no_grad():
-            source = torch.from_numpy(x).view(1, -1).float().cuda()
-            res = self.model(
-                source=source, mask=False, features_only=True, layer=self.layer
-            )
-            return res["layer_results"][self.layer][0].squeeze(1)
 
 
 def get_iterator(args):

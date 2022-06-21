@@ -1,4 +1,5 @@
 export HYDRA_FULL_ERROR=1
+CHECKPOINT=/work/b07502072/pretrained_models/wav2vec_vox_new.pt
 # TASK_DATA=/work/b07502072/corpus/u-s2s/audio/de_feats/voxpopuli/xlsr_new/precompute_pca512_cls128_mean_pooled
 TASK_DATA=/work/b07502072/corpus/u-s2s/audio/en_feats/mls_en/spk1hr/large_clean_new/precompute_pca512_cls128_mean_pooled
 # TEXT_DATA=/work/b07502072/corpus/u-s2s/text/voxpopuli_trans/de/prep/phones
@@ -8,8 +9,8 @@ SUBSET=asr_test
 SAVE_DIR=mls_en/large_clean_new/mls_trans/cp4_gp1.5_sw0.5/seed1
 # SAVE_DIR=voxpopuli_de/xlsr_new/vox_trans/cp4_gp2.0_sw0.5/seed1
 # SAVE_DIR=2022-05-03/18-51-26/0
-DECODE_METHOD=viterbi
-DECODE_TYPE=phones
+DECODE_METHOD=kenlm
+DECODE_TYPE=words
 BEAM=500
 LM_WEIGHT=5.0
 # TARGET_DATA_DIR=/home/b07502072/u-speech2speech/s2p/utils/goldens/voxpopuli/de
@@ -41,7 +42,7 @@ echo "BEAM: $BEAM"
 echo "LM_WEIGHT: $LM_WEIGHT"
 
 cp $TEXT_DATA/* $TASK_DATA
-python w2vu_generate.py --config-dir config/generate --config-name ${DECODE_METHOD} \
+python w2vu_generate_directly.py --config-dir config/generate/directly --config-name ${DECODE_METHOD} \
 beam=${BEAM} \
 lm_weight=${LM_WEIGHT} \
 lm_model=${LM_PATH} \
@@ -49,6 +50,7 @@ lexicon=${LEXICON_PATH} \
 targets=${TARGET_DATA} \
 fairseq.common.user_dir=${FAIRSEQ_ROOT}/examples/wav2vec/unsupervised \
 fairseq.task.data=${TASK_DATA} \
+fairseq.task.directly.checkpoint=${CHECKPOINT} \
 fairseq.common_eval.path=/home/b07502072/u-speech2speech/s2p/multirun/${SAVE_DIR}/checkpoint_best.pt \
 fairseq.dataset.gen_subset=${SUBSET} results_path=/home/b07502072/u-speech2speech/s2p/multirun/${SAVE_DIR}/${SUBSET}_${DECODE_METHOD}_${BEAM}-${LM_WEIGHT}.${DECODE_TYPE}
 rm $TASK_DATA/lm* $TASK_DATA/dict* $TASK_DATA/*log $TASK_DATA/train.bin $TASK_DATA/train.idx

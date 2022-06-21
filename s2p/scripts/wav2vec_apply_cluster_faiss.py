@@ -15,7 +15,8 @@ import sys
 import faiss
 import torch.nn.functional as F
 
-from wav2vec_cluster_faiss import parse_faiss_specs, Wav2VecFeatureReader
+from wav2vec_cluster_faiss import parse_faiss_specs
+from wav2vec_extract_features import Wav2VecFeatureReader
 
 
 def get_parser():

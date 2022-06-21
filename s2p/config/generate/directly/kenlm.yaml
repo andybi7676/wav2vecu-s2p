@@ -8,6 +8,8 @@ fairseq:
     sort_by_length: false
     shuffle: false
     text_data: ''
+    directly:
+      checkpoint: ???
 
   common_eval:
     path: ???

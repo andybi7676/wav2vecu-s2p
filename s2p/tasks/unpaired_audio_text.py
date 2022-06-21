@@ -14,7 +14,7 @@ import torch
 
 from fairseq.logging import metrics
 from fairseq.tasks import FairseqTask, register_task
-from ..data import ExtractedFeaturesDataset, RandomInputDataset
+from ..data import ExtractedFeaturesDataset, RandomInputDataset, ExtractedFeaturesDirectlyDataset
 
 from fairseq.data import (
     Dictionary,
@@ -39,6 +39,21 @@ class DecodingConfig(FairseqDataclass):
     kenlm_path: Optional[str] = None
     lm_weight: float = 0
     blank_weight: float = 0
+
+@dataclass
+class DirectlyExtractConfig(FairseqDataclass):
+    checkpoint: str = field(
+        default=MISSING, metadata={"help": "path to the wav2vec2 model for feature extraction"}
+    )
+    layer: int = 14,
+    centroids_path: str = 'CLUS128',
+    pca_path: str = 'pca',
+    pca_dim: int = 512,
+    merge_cluster: bool = True,
+    adjacent_pooling: bool = True,
+    pooling:str = 'mean',
+    subsample_rate: float = 0.5,
+    remove_extra: bool = False,
 
 
 @dataclass
@@ -82,6 +97,7 @@ class UnpairedAudioTextConfig(FairseqDataclass):
 
     decoding_config: DecodingConfig = DecodingConfig()
 
+    directly: Optional[DirectlyExtractConfig] = None
 
 @register_task("unpaired_audio_text", dataclass=UnpairedAudioTextConfig)
 class UnpairedAudioText(FairseqTask):
@@ -285,7 +301,7 @@ class UnpairedAudioText(FairseqTask):
 
         return c_err, c_len, logging_output
 
-    def load_dataset(self, split: str, task_cfg: FairseqDataclass = None, **kwargs):
+    def load_dataset(self, split: str, task_cfg: FairseqDataclass = None, directly_extract = False, **kwargs):
         data_path = self.cfg.data
         task_cfg = task_cfg or self.cfg
 
@@ -293,16 +309,40 @@ class UnpairedAudioText(FairseqTask):
             os.path.join(self.cfg.text_data, f"{split}.idx")
         )
 
-        self.datasets[split] = ExtractedFeaturesDataset(
-            path=data_path,
-            split=split,
-            min_length=3,
-            max_length=task_cfg.max_length,
-            labels=None if has_unpaired_text else task_cfg.labels,
-            label_dict=self.target_dictionary,
-            shuffle=getattr(task_cfg, "shuffle", True),
-            sort_by_length=task_cfg.sort_by_length,
-        )
+        if directly_extract :
+            directly_cfg = task_cfg.directly
+            logger.info(f"[ Directly Extract Config ] = {directly_cfg}")
+            self.datasets[split] = ExtractedFeaturesDirectlyDataset(
+                path=data_path,
+                split=split,
+                min_length=3,
+                max_length=task_cfg.max_length,
+                labels=None if has_unpaired_text else task_cfg.labels,
+                label_dict=self.target_dictionary,
+                shuffle=getattr(task_cfg, "shuffle", True),
+                sort_by_length=task_cfg.sort_by_length,
+                checkpoint=directly_cfg.checkpoint,
+                layer=directly_cfg.layer,
+                centroids_path=directly_cfg.centroids_path,
+                pca_path=directly_cfg.pca_path,
+                pca_dim=directly_cfg.pca_dim,
+                merge_cluster=directly_cfg.merge_cluster,
+                adjacent_pooling=directly_cfg.adjacent_pooling,
+                pooling=directly_cfg.pooling,
+                subsample_rate=directly_cfg.subsample_rate,
+                remove_extra=directly_cfg.remove_extra,
+            )
+        else:
+            self.datasets[split] = ExtractedFeaturesDataset(
+                path=data_path,
+                split=split,
+                min_length=3,
+                max_length=task_cfg.max_length,
+                labels=None if has_unpaired_text else task_cfg.labels,
+                label_dict=self.target_dictionary,
+                shuffle=getattr(task_cfg, "shuffle", True),
+                sort_by_length=task_cfg.sort_by_length,
+            )
 
         logger.info(f"split {split} has unpaired text? {has_unpaired_text}")
         if has_unpaired_text:
