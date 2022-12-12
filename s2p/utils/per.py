@@ -1,31 +1,30 @@
-import edit_distance
 import os
 from tqdm import tqdm
 
-ref_f = "/home/b07502072/u-speech2speech/s2p/utils/asr_test.phones.txt"
-hyp_f = "/home/b07502072/u-speech2speech/s2p/multirun/2022-04-09/14-52-16/0/asr_test/asr_test.txt"
+# ref_f = "/home/b07502072/u-speech2speech/s2p/utils/asr_test.phones.txt"
+# hyp_f = "/home/b07502072/u-speech2speech/s2p/multirun/2022-04-09/14-52-16/0/asr_test/asr_test.txt"
+ref_f = "/home/b07502072/u-speech2speech/s2p/utils/goldens/cv4_de/train.phones.txt"
+hyp_f = "/home/b07502072/u-speech2speech/s2p/multirun/cv4_de/xlsr/cv_wiki_3k/cp4_gp2.0_sw0.5/seed3/kaldi_decode/phones_lm4_adj_pool_false/ckpt_best_train_500_1.4_3.0/train.txt"
+reduce_set = [chr(771), chr(720)]
 
 def read_phn_file(file_path):
     data = []
     with open(file_path, 'r') as fr:
         for line in fr:
+            for re in reduce_set:
+                line = line.replace(re, "")
             line = line.strip().split()
             data.append(line)
     return data
-        
-def filter(line):
-    return True
-    line = line.strip().split('\t')
-    years = ['2016']
-    return line[0][0:4] in years
 
-def main():
-    ref_data = read_phn_file(ref_f)
-    hyp_data = read_phn_file(hyp_f)
-
+def cal_per(ref_data, hyp_data):
+    import edit_distance
     S, D, I, N = (0, 0, 0, 0)
     count = 0
     for ref, hyp in tqdm(zip(ref_data, hyp_data)):
+        if count < 5:
+            print(' '.join(hyp))
+            print(' '.join(ref))
         sm = edit_distance.SequenceMatcher(a=ref, b=hyp)
         opcodes = sm.get_opcodes()
         
@@ -42,6 +41,13 @@ def main():
         I += i
         N += n
         count += 1
+    return S, D, I, N, count
+
+def main():
+    ref_data = read_phn_file(ref_f)
+    hyp_data = read_phn_file(hyp_f)
+    S, D, I, N, count = cal_per(ref_data, hyp_data) 
+    
     print(f"PER: {(S+D+I)/N *100} %")
     print(f"DEL RATE: {(D)/N *100} %")
     print(f"INS RATE: {(I)/N *100} %")

@@ -19,4 +19,4 @@ fairseq:
 
 w2l_decoder: VITERBI
 lm_model: /work/b07502072/corpus/u-s2s/text/wiki/en/wiki_1-5/phones/lm.phones.filtered.04.bin
-post_process: silence
+post_process: ???

@@ -16,7 +16,7 @@ import faiss
 import torch.nn.functional as F
 
 from wav2vec_cluster_faiss import parse_faiss_specs
-from wav2vec_extract_features import Wav2VecFeatureReader
+from wav2vec_extract_features import Wav2VecFeatureReader, HubertFeatureReader
 
 
 def get_parser():
@@ -52,8 +52,12 @@ def get_iterator(args):
             lbls = [None] * len(files)
 
         num = len(files)
-        reader = Wav2VecFeatureReader(args.checkpoint, args.layer)
-
+        if "hubert" in args.checkpoint:
+            print("Use HubertFeatureReader")
+            reader = HubertFeatureReader(args.checkpoint, args.layer)
+        else:
+            reader = Wav2VecFeatureReader(args.checkpoint, args.layer)
+            
         def iterate():
             for fname, lbl in zip(files, lbls):
                 file = osp.join(root, fname.split("\t")[0])

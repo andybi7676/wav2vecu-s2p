@@ -13,8 +13,8 @@ common:
   suppress_crashes: false
 
 checkpoint:
-  save_interval: 10000
-  save_interval_updates: 10000
+  save_interval: 50000
+  save_interval_updates: 50000
   no_epoch_checkpoints: true
   best_checkpoint_metric: weighted_lm_ppl
   save_dir: .
@@ -102,7 +102,7 @@ model:
   generator_bias: false
   generator_dropout: 0.1
 
-  ncritic: 1 # num of updates per generator update. default: 1
+  ncritic: 1 # num of discriminator updates per generator update. default: 1
   smoothness_weight: 0.5
   smoothing: 0
   smoothing_one_sided: false

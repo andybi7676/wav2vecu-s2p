@@ -3,6 +3,9 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
+set -e
+set -u
+set -o pipefail
 
 source_dir=$1
 tgt_dir=$2
@@ -48,7 +51,7 @@ echo "processing splits: $all_splits"
 
 mkdir -p $tgt_dir
 
-cp $source_dir/*.tsv $tgt_dir
+# cp $source_dir/*.tsv $tgt_dir
 # cp $source_dir/*.wrd $tgt_dir
 # cp $source_dir/*.ltr $tgt_dir
 # cp $source_dir/*.phn $tgt_dir
@@ -57,16 +60,18 @@ cp $source_dir/*.tsv $tgt_dir
 setopt shwordsplit
 # set -o shwordsplit
 
-for split in $all_splits; do
-  python $FAIRSEQ_ROOT/examples/wav2vec/unsupervised/scripts/wav2vec_extract_features.py $source_dir --split $split \
-  --save-dir $tgt_dir --checkpoint $model --layer $layer
-done
-echo "Finished extract features."
+# for split in $all_splits; do
+#   # python $FAIRSEQ_ROOT/examples/wav2vec/unsupervised/scripts/wav2vec_extract_features.py $source_dir --split $split \
+#   # --save-dir $tgt_dir --checkpoint $model --layer $layer
+#   python scripts/wav2vec_extract_features.py $source_dir --split $split \
+#   --save-dir $tgt_dir --checkpoint $model --layer $layer
+# done
+# echo "Finished extract features."
 
-echo "Clustering..."
-python scripts/wav2vec_cluster_faiss.py $tgt_dir/${train_split}.tsv \
---checkpoint $model --save-dir $tgt_dir -f "CLUS128" --sample-pct 1.0
-echo "Finished clustering."
+# echo "Clustering..."
+# python scripts/wav2vec_cluster_faiss.py $tgt_dir/${train_split}.tsv \
+# --checkpoint $model --save-dir $tgt_dir -f "CLUS128" --sample-pct 1.0
+# echo "Finished clustering."
 
 for split in $all_splits; do
   python scripts/wav2vec_apply_cluster_faiss.py $tgt_dir \

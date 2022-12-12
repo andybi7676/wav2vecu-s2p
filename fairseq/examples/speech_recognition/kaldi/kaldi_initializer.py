@@ -164,9 +164,9 @@ def create_L(
     if not lexicon_graph.exists():
         logger.info(f"Creating {lexicon_graph} (in units: {in_units_file})")
         make_lex = kaldi_root / "egs/wsj/s5/utils/make_lexicon_fst.pl"
-        fstcompile = kaldi_root / "tools/openfst-1.7.2/bin/fstcompile"
+        fstcompile = kaldi_root / "tools/openfst-1.6.7/bin/fstcompile"
         fstaddselfloops = kaldi_root / "src/fstbin/fstaddselfloops"
-        fstarcsort = kaldi_root / "tools/openfst-1.7.2/bin/fstarcsort"
+        fstarcsort = kaldi_root / "tools/openfst-1.6.7/bin/fstarcsort"
 
         def write_disambig_symbol(file):
             with open(file, "r") as f:
@@ -243,7 +243,7 @@ def create_LG(
         fstdeterminizestar = kaldi_root / "src/fstbin/fstdeterminizestar"
         fstminimizeencoded = kaldi_root / "src/fstbin/fstminimizeencoded"
         fstpushspecial = kaldi_root / "src/fstbin/fstpushspecial"
-        fstarcsort = kaldi_root / "tools/openfst-1.7.2/bin/fstarcsort"
+        fstarcsort = kaldi_root / "tools/openfst-1.6.7/bin/fstarcsort"
 
         try:
             with open(lg_graph, "wb") as out_f:
@@ -385,9 +385,9 @@ def create_H(
                 f.write("{}\n".format(disam_sym_id))
                 disam_sym_id += 1
 
-        fstcompile = kaldi_root / "tools/openfst-1.7.2/bin/fstcompile"
+        fstcompile = kaldi_root / "tools/openfst-1.6.7/bin/fstcompile"
         fstaddselfloops = kaldi_root / "src/fstbin/fstaddselfloops"
-        fstarcsort = kaldi_root / "tools/openfst-1.7.2/bin/fstarcsort"
+        fstarcsort = kaldi_root / "tools/openfst-1.6.7/bin/fstarcsort"
 
         try:
             with open(h_graph, "wb") as out_f:
@@ -571,7 +571,7 @@ def create_HLG(
 
         try:
             if not add_self_loop.exists():
-                fst_include = kaldi_root / "tools/openfst-1.7.2/include"
+                fst_include = kaldi_root / "tools/openfst-1.6.7/include"
                 add_self_loop_src = script_dir / "add-self-loop-simple.cc"
 
                 subprocess.run(

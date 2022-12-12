@@ -11,8 +11,10 @@ import argparse
 import glob
 import os
 import random
+import tqdm
+import soundfile as sf
+import multiprocessing as mp
 
-import soundfile
 
 
 def get_parser():
@@ -26,6 +28,9 @@ def get_parser():
         type=float,
         metavar="D",
         help="percentage of data to use as validation set (between 0 and 1)",
+    )
+    parser.add_argument(
+        "--output-fname", default="train", type=str, metavar="NAME", help="output fname"
     )
     parser.add_argument(
         "--dest", default=".", type=str, metavar="DIR", help="output directory"
@@ -43,6 +48,10 @@ def get_parser():
     )
     return parser
 
+def get_frames(file_path):
+    
+    frames = sf.info(file_path).frames
+    return frames
 
 def main(args):
     assert args.valid_percent >= 0 and args.valid_percent <= 1.0
@@ -54,28 +63,32 @@ def main(args):
     search_path = os.path.join(dir_path, "**/*." + args.ext)
     rand = random.Random(args.seed)
 
+    output_fname = args.output_fname
+    valid_fname = "valid" if output_fname == "train" else f"{output_fname}-valid"
     valid_f = (
-        open(os.path.join(args.dest, "valid.tsv"), "w")
+        open(os.path.join(args.dest, f"{valid_fname}.tsv"), "w")
         if args.valid_percent > 0
         else None
     )
 
-    with open(os.path.join(args.dest, "train.tsv"), "w") as train_f:
+    with open(os.path.join(args.dest, f"{output_fname}.tsv"), "w") as train_f:
         print(dir_path, file=train_f)
 
         if valid_f is not None:
             print(dir_path, file=valid_f)
+        
+        
+        file_paths = [os.path.realpath(fname) for fname in glob.iglob(search_path, recursive=True)]
+        pool = mp.Pool()
+        frames = list(tqdm.tqdm(pool.imap(get_frames, file_paths), total=len(file_paths)))
 
-        for fname in glob.iglob(search_path, recursive=True):
-            file_path = os.path.realpath(fname)
-
+        for file_path, frame in zip(file_paths, frames):
             if args.path_must_contain and args.path_must_contain not in file_path:
                 continue
 
-            frames = soundfile.info(fname).frames
             dest = train_f if rand.random() > args.valid_percent else valid_f
             print(
-                "{}\t{}".format(os.path.relpath(file_path, dir_path), frames), file=dest
+                "{}\t{}".format(os.path.relpath(file_path, dir_path), frame), file=dest
             )
     if valid_f is not None:
         valid_f.close()

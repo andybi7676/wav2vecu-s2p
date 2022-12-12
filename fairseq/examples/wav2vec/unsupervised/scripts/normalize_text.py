@@ -15,7 +15,7 @@ def main():
         line = line.strip()
         line = filter_r.sub(" ", line)
         line = " ".join(line.split())
-        print(line)
+        print(line.lower())
 
 
 if __name__ == "__main__":

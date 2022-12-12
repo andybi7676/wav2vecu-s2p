@@ -31,7 +31,7 @@ def main():
     args = parser.parse_args()
 
     print("Reading features")
-    # x = np.load(args.data, mmap_mode="r") # found using mmap_mode will cause infinite running time, but still don't know why. 
+    # x = np.load(args.data, mmap_mode="r") # found using mmap_mode will cause infinite running time (calculate on disk memory). 
     x = np.load(args.data)
     threshold = 100000000
     print(f"Shape of x: {x.shape}, Over-threshold: {len(x) > threshold}")

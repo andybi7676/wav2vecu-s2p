@@ -32,6 +32,49 @@ def get_parser():
 
     return parser
 
+class HubertFeatureReader(object):
+    def __init__(self, ckpt_path, layer, max_chunk=1600000):
+        (
+            model,
+            cfg,
+            task,
+        ) = fairseq.checkpoint_utils.load_model_ensemble_and_task([ckpt_path])
+        self.model = model[0].eval().cuda()
+        self.task = task
+        self.layer = layer
+        self.max_chunk = max_chunk
+        # logger.info(f"TASK CONFIG:\n{self.task.cfg}")
+        # logger.info(f" max_chunk = {self.max_chunk}")
+
+    def read_audio(self, path, ref_len=None):
+        wav, sr = sf.read(path)
+        assert sr == self.task.cfg.sample_rate, sr
+        if wav.ndim == 2:
+            wav = wav.mean(-1)
+        assert wav.ndim == 1, wav.ndim
+        if ref_len is not None and abs(ref_len - len(wav)) > 160:
+            print(f"ref {ref_len} != read {len(wav)} ({path})")
+        return wav
+
+    def get_feats(self, path, ref_len=None):
+        x = self.read_audio(path, ref_len)
+        with torch.no_grad():
+            x = torch.from_numpy(x).float().cuda()
+            if self.task.cfg.normalize:
+                x = F.layer_norm(x, x.shape)
+            x = x.view(1, -1)
+
+            feat = []
+            for start in range(0, x.size(1), self.max_chunk):
+                x_chunk = x[:, start: start + self.max_chunk]
+                feat_chunk, _ = self.model.extract_features(
+                    source=x_chunk,
+                    padding_mask=None,
+                    mask=False,
+                    output_layer=self.layer,
+                )
+                feat.append(feat_chunk)
+        return torch.cat(feat, 1).squeeze(0).cpu()
 
 class Wav2VecFeatureReader(object):
     def __init__(self, cp_file, layer):
@@ -73,7 +116,11 @@ def get_iterator(args):
         files = [osp.join(root, line.split("\t")[0]) for line in lines if len(line) > 0]
 
         num = len(files)
-        reader = Wav2VecFeatureReader(args.checkpoint, args.layer)
+        if "hubert" in args.checkpoint:
+            print("Use HubertFeatureReader")
+            reader = HubertFeatureReader(args.checkpoint, args.layer)
+        else:
+            reader = Wav2VecFeatureReader(args.checkpoint, args.layer)
 
         def iterate():
             for fname in files:

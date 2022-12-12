@@ -13,8 +13,10 @@ from scipy.signal import lfilter
 import numpy as np
 from tqdm import tqdm
 import soundfile as sf
+import librosa as lb
 import os.path as osp
 import multiprocessing as mp
+sys.path.append("/home/b07502072/u-speech2speech/s2p/rVADfast")
 import speechproc
 import random
 import time
@@ -24,6 +26,12 @@ stride = 160
 
 def get_parser():
     parser = argparse.ArgumentParser(description="compute vad segments")
+    parser.add_argument(
+        "--manifest",
+        "-m",
+        help="path of the manifest of sound files.(.tsv)",
+        required=True,
+    )
     parser.add_argument(
         "--rvad-home",
         "-r",
@@ -60,7 +68,7 @@ def rvad(fpath):
     vadThres = 0.4
     opts = 1
 
-    data, fs = sf.read(path)
+    data, fs = lb.load(path, sr=16_000, dtype='float64')
     assert fs == 16_000, "sample rate must be 16khz"
     ft, flen, fsh10, nfr10 = speechproc.sflux(data, fs, winlen, ovrlen, nftt)
 
@@ -101,7 +109,7 @@ def rvad(fpath):
     if start is not None:
         vad_segs.append((start, len(data)))
 
-    return " ".join(f"{v[0]}:{v[1]}" for v in vad_segs) # will output to train.vads. Each line looks like => start_1:end_1 start_2:end_2 start_3:end_3 
+    return " ".join(f"{v[0]}:{v[1]}" for v in vad_segs) # will output to train.vads. Each line looks like => start_1:end_1 start_2:end_2 start_3:end_3
 
 
 def main():
@@ -109,8 +117,11 @@ def main():
     args = parser.parse_args()
 
     sys.path.append(args.rvad_home)
-    
-    lines = sys.stdin.readlines()
+
+    lines = []
+    with open(args.manifest, 'r') as mfr:
+        lines = mfr.readlines()
+    # lines = sys.stdin.readlines()
     global root
     root = lines[0].rstrip()
 
@@ -119,8 +130,11 @@ def main():
     lines = lines[i_start:i_end]
 
     pool = mp.Pool()
-    vad_segs = list(tqdm(pool.imap(test, lines), total=len(lines)))
+    vad_segs = list(tqdm(pool.imap(rvad, lines), total=len(lines)))
 
+    with open(args.manifest.split('.')[0]+f"_{i_start}-{i_end}.vads", 'w') as vads_outf:
+        for vad_seg in vad_segs:
+            vads_outf.write(vad_seg+'\n')
     print(vad_segs[0:10])
 
 

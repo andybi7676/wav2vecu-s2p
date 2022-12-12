@@ -54,7 +54,7 @@ def main():
     for line in sys.stdin:
         line = line.strip()
         line = filter_r.sub(" ", line)
-        line = " ".join(line.split())
+        line = " ".join(line.split()).lower()
 
         if model is not None:
             lid, prob = model.predict(line, k=100)

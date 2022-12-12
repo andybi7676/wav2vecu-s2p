@@ -13,9 +13,10 @@ def main():
 
     for line in sys.stdin:
         line = line.strip()
+        line = line.replace('’', '\'')
         line = filter_r.sub(" ", line)
         line = " ".join(line.split())
-        print(line)
+        print(line.lower())
 
 
 if __name__ == "__main__":

@@ -8,6 +8,9 @@ f_path = '/work/b07502072/corpus/test_kaggle/u-s2p/text/wiki_1-5/phones/lm.phone
 f_path = '/work/b07502072/corpus/test_kaggle/u-s2p/text/wiki_2/phones/lm.phones.filtered.txt'
 f_path = '/work/b07502072/corpus/test_kaggle/u-s2p/text/marc/phones/lm.phones.filtered.txt'
 f_path = '/work/b07502072/corpus/test_kaggle/u-s2p/text/voxpopuli_trans/phones/lm.phones.filtered.txt'
+f_path = '/work/b07502072/corpus/u-s2s/text/8M_wiki/de/train.de'
+f_path = '/work/b07502072/corpus/u-s2s/text/cv4_others/de/other.uniq.txt'
+f_path = '/home/b07502072/u-speech2speech/s2p/utils/goldens/cv4_de/asr_test.trans.txt'
 
 with open(f_path, 'r') as fr:
     total_line = 0

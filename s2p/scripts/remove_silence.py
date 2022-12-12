@@ -16,12 +16,14 @@ import argparse
 import torch
 import torchaudio
 import tqdm
-
+import librosa as lb
+SAMPLE_RATE = 16_000
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--tsv", default="", type=str)
 parser.add_argument("--vads", default="", type=str)
 parser.add_argument("--out", type=str)
+parser.add_argument("--overwrite", default=False, action="store_true")
 params = parser.parse_args()
 
 # load paths
@@ -42,22 +44,28 @@ with open(params.vads) as f:
 
 
 # load audio and keep only intervals (i.e. remove silences)
-for i in tqdm.trange(len(paths)):
-    data, _ = torchaudio.load(paths[i])
+for i in tqdm.tqdm(range(len(paths))):
+    if not params.overwrite:
+        outpath = params.out + "/" + "/".join(paths[i].split("/")[-1:])
+        if os.path.exists(outpath): continue
+    data, sr = lb.load(paths[i], sr=SAMPLE_RATE)
+    assert sr == SAMPLE_RATE
+    wav = torch.FloatTensor([data])
     if len(list_intervals[i]) > 0:
         data_filtered = torch.cat(
-            [data[0][int(it[0]) : int(it[1])] for it in list_intervals[i]]
+            [wav[0][int(it[0]) : int(it[1])] for it in list_intervals[i]]
         ).unsqueeze(0)
     else:
-        data_filtered = data
+        data_filtered = wav
 
     # YOU MAY NEED TO MODIFY THIS TO GET THE RIGHT SUBPATH
-    # outpath = params.out + '/'.join(paths[i].split('/')[-1])
-    outpath = params.out + "/" + "/".join(paths[i].split("/")[-2:])
+    outpath = params.out + '/' + '/'.join(paths[i].split('/')[-1:])
+    # outpath = params.out + "/" + "/".join(paths[i].split("/")[-2:])
 
     if not os.path.isdir("/".join(outpath.split("/")[:-1])):
         os.makedirs("/".join(outpath.split("/")[:-1]))
     if not os.path.exists(outpath):
-        torchaudio.save(outpath, data_filtered, sample_rate=16000)
+        torchaudio.save(outpath, data_filtered, sample_rate=SAMPLE_RATE)
     else:
-        print(outpath, "exists!")
+        print(outpath, "exists and overwrite!")
+        torchaudio.save(outpath, data_filtered, sample_rate=SAMPLE_RATE)

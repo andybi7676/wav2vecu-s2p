@@ -69,6 +69,10 @@ class UnpairedAudioTextConfig(FairseqDataclass):
         default=None,
         metadata={"help": "extension of the label file to load, used for fine-tuning"},
     )
+    aux_target_postfix: Optional[str] = field(
+        default=None,
+        metadata={"help": "auxaliry target filename extension"},
+    )
     unfiltered: bool = field(
         default=False, metadata={"help": "load data with _unfiltered suffix"}
     )
@@ -321,6 +325,7 @@ class UnpairedAudioText(FairseqTask):
                 label_dict=self.target_dictionary,
                 shuffle=getattr(task_cfg, "shuffle", True),
                 sort_by_length=task_cfg.sort_by_length,
+                aux_target_postfix=getattr(task_cfg, "aux_target_postfix", None),
                 checkpoint=directly_cfg.checkpoint,
                 layer=directly_cfg.layer,
                 centroids_path=directly_cfg.centroids_path,
@@ -342,6 +347,7 @@ class UnpairedAudioText(FairseqTask):
                 label_dict=self.target_dictionary,
                 shuffle=getattr(task_cfg, "shuffle", True),
                 sort_by_length=task_cfg.sort_by_length,
+                aux_target_postfix=getattr(task_cfg, "aux_target_postfix", None),
             )
 
         logger.info(f"split {split} has unpaired text? {has_unpaired_text}")

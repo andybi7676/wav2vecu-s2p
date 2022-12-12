@@ -7,6 +7,7 @@
 import argparse
 import sys
 
+from collections import defaultdict
 from g2p_en import G2p
 
 
@@ -17,22 +18,36 @@ def main():
         action="store_true",
         help="if set, compacts phones",
     )
+    parser.add_argument(
+        "--only_phonemes",
+        action="store_true",
+        help="if set, filter out non-phone set phones",
+    )
     args = parser.parse_args()
 
     compact = args.compact
+    only_phonemes = args.only_phonemes
 
-    wrd_to_phn = {}
+    wrd_to_phn = defaultdict(lambda: False)
     g2p = G2p()
     for line in sys.stdin:
         words = line.strip().split()
         phones = []
+        valid_phonemes = [p for p in g2p.phonemes]
+        for p in g2p.phonemes:
+            if p[-1].isnumeric():
+                valid_phonemes.append(p[:-1])
         for w in words:
-            if w not in wrd_to_phn:
-                wrd_to_phn[w] = g2p(w)
+            if not wrd_to_phn[w]:
+                phns = g2p(w)
                 if compact:
-                    wrd_to_phn[w] = [
-                        p[:-1] if p[-1].isnumeric() else p for p in wrd_to_phn[w]
+                    phns = [
+                        p[:-1] if p[-1].isnumeric() else p for p in phns
                     ]
+                if only_phonemes:
+                    phns = list(filter(lambda x: x in valid_phonemes, phns))
+                    # print(phns)
+                wrd_to_phn[w] = phns
             phones.extend(wrd_to_phn[w])
         try:
             print(" ".join(phones))

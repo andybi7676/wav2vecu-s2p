@@ -59,12 +59,11 @@ class Wav2vec_UConfig(FairseqDataclass):
     generator_kernel: int = 4
     generator_dilation: int = 1
     generator_stride: int = 1
+    generator_pad: int = -1
     generator_bias: bool = False
     generator_dropout: float = 0.0
-    generator_bn_apply: bool = False
-    generator_bn_init_weight: float = 30.0
-    generator_ln_apply: bool = False
-    generator_ln_output_dim: int = 512
+    generator_batch_norm: int = 0
+    generator_residual: bool = False
 
     blank_weight: float = 0
     blank_mode: str = "add"
@@ -78,6 +77,9 @@ class Wav2vec_UConfig(FairseqDataclass):
     gradient_penalty: float = 0.0
     probabilistic_grad_penalty_slicing: bool = False
     code_penalty: float = 0.0
+    mmi_weight: float = 0.0
+    target_dim: int = 64
+    target_downsample_rate: int = 2
     gumbel: bool = False
     hard_gumbel: bool = True
     temp: Tuple[float, float, float] = (2, 0.1, 0.99995)
@@ -294,28 +296,23 @@ class Generator(nn.Module):
         self.output_dim = output_dim
         self.stride = cfg.generator_stride
         self.dropout = nn.Dropout(cfg.generator_dropout)
-        cnn_input_dim = input_dim
+        self.batch_norm = cfg.generator_batch_norm != 0
+        self.residual = cfg.generator_residual
 
-        padding = cfg.generator_kernel // 2
-        preprocess = [ TransposeLast() ]
-        if cfg.generator_bn_apply:
-            bn = nn.BatchNorm1d(input_dim)
-            bn.weight = Parameter(torch.ones(input_dim)*cfg.generator_bn_init_weight)
-            bn.running_var *= cfg.generator_bn_init_weight
-            preprocess.append(bn)
-        if cfg.generator_ln_apply:
-            assert cfg.generator_ln_output_dim > 0, "Invalid generator linear layer output dim!"
-            ln = nn.Linear(input_dim, cfg.generator_ln_output_dim)
-            preprocess += [
-                TransposeLast(),
-                ln,
-                TransposeLast()
-            ]
-            cnn_input_dim = cfg.generator_ln_output_dim
+        padding = (
+            cfg.generator_kernel // 2 if cfg.generator_pad < 0 else cfg.generator_pad
+        )
+
+        if self.batch_norm:
+            self.bn = nn.BatchNorm1d(input_dim)
+            self.bn.weight.data.fill_(cfg.generator_batch_norm)
+        if self.residual:
+            self.in_proj = nn.Linear(input_dim, input_dim)
+        
         self.proj = nn.Sequential(
-            *preprocess,
+            TransposeLast(),
             nn.Conv1d(
-                cnn_input_dim,
+                input_dim,
                 output_dim,
                 kernel_size=cfg.generator_kernel,
                 stride=cfg.generator_stride,
@@ -327,6 +324,15 @@ class Generator(nn.Module):
         )
 
     def forward(self, dense_x, tokens, dense_padding_mask):
+        result = {}
+
+        if self.batch_norm:
+            dense_x = self.bn_padded_data(dense_x, dense_padding_mask)
+        if self.residual:
+            inter_x = self.in_proj(self.dropout(dense_x))
+            dense_x = dense_x + inter_x
+            result["inter_x"] = inter_x
+        
         dense_x = self.dropout(dense_x)
 
         dense_x = self.proj(dense_x)
@@ -336,9 +342,9 @@ class Generator(nn.Module):
         if dense_padding_mask.size(1) != dense_x.size(1):
             new_padding = dense_padding_mask.new_zeros(dense_x.shape[:-1])
             diff = new_padding.size(1) - dense_padding_mask.size(1)
-            assert (
-                diff > 0
-            ), f"{new_padding.shape}, {dense_padding_mask.shape}, {dense_x.shape}, {diff}"
+            # assert (
+            #     diff > 0
+            # ), f"{new_padding.shape}, {dense_padding_mask.shape}, {dense_x.shape}, {diff}"
             if diff > 0:
                 new_padding[:, diff:] = dense_padding_mask
             else:
@@ -346,8 +352,6 @@ class Generator(nn.Module):
                 new_padding = dense_padding_mask[:, :diff]
 
             dense_padding_mask = new_padding
-
-        result = {}
 
         token_x = None
         if tokens is not None:
@@ -360,6 +364,13 @@ class Generator(nn.Module):
         result["dense_padding_mask"] = dense_padding_mask
 
         return result
+    
+    def bn_padded_data(self, feature, padding_mask):
+        normed_feature = feature.clone()
+        normed_feature[~padding_mask] = self.bn(
+            feature[~padding_mask]
+        )
+        return normed_feature
 
 
 @register_model("wav2vec_u", dataclass=Wav2vec_UConfig)
@@ -443,6 +454,7 @@ class Wav2vec_U(BaseFairseqModel):
 
         self.gradient_penalty = cfg.gradient_penalty
         self.code_penalty = cfg.code_penalty
+        self.mmi_weight = cfg.mmi_weight
         self.blank_weight = cfg.blank_weight
         self.blank_mode = cfg.blank_mode
         self.blank_index = target_dict.index("<SIL>") if cfg.blank_is_sil else 0
@@ -468,6 +480,12 @@ class Wav2vec_U(BaseFairseqModel):
         self.max_temp, self.min_temp, self.temp_decay = cfg.temp
         self.curr_temp = self.max_temp
         self.update_num = 0
+
+        if self.mmi_weight > 0:
+            self.target_downsample_rate = cfg.target_downsample_rate
+            self.decoder = nn.Linear(d, cfg.target_dim)
+            for p in self.decoder.parameters():
+                p.param_group = "generator"
 
     @classmethod
     def build_model(cls, cfg, task):
@@ -552,6 +570,7 @@ class Wav2vec_U(BaseFairseqModel):
         random_label=None,
         dense_x_only=False,
         segment=True,
+        aux_target=None,
     ):
         if segment:
             features, padding_mask = self.segmenter.pre_segment(features, padding_mask)
@@ -601,6 +620,7 @@ class Wav2vec_U(BaseFairseqModel):
         zero_loss = None
         smoothness_loss = None
         code_pen = None
+        mmi_loss = None
 
         if d_step:
             loss_dense = F.binary_cross_entropy_with_logits(
@@ -639,12 +659,26 @@ class Wav2vec_U(BaseFairseqModel):
                 smoothness_loss = (
                     smoothness_loss.mean() * sample_size * self.smoothness_weight
                 )
+            
+            if (self.mmi_weight > 0) and (aux_target is not None):
+                inter_x = self.decoder(gen_result["inter_x"])
+                if self.target_downsample_rate > 1:
+                    aux_target = aux_target[:, :: self.target_downsample_rate]
+                max_t_len = min(aux_target.shape[1], inter_x.shape[1])
+                mmi_loss = F.cross_entropy(
+                    inter_x[:, :max_t_len].transpose(1, 2),
+                    aux_target[:, :max_t_len],
+                    ignore_index=-1,
+                    reduction="none",
+                )
+                mmi_loss = mmi_loss.mean() * mmi_loss.shape[0] * self.mmi_weight
 
         result = {
             "losses": {
                 "grad_pen": grad_pen,
                 "code_pen": code_pen,
                 "smoothness": smoothness_loss,
+                "mmi": mmi_loss,
             },
             "temp": self.curr_temp,
             "code_ppl": code_perplexity,

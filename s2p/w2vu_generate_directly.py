@@ -322,7 +322,10 @@ GenResult = namedtuple(
 def generate(cfg: UnsupGenerateConfig, models, saved_cfg, use_cuda):
     task = tasks.setup_task(cfg.fairseq.task)
     saved_cfg.task.labels = cfg.fairseq.task.labels
-    task.load_dataset(cfg.fairseq.dataset.gen_subset, task_cfg=saved_cfg.task, directly_extract=True)
+    if cfg.fairseq.task._name == "unpaired_audio_text":
+        task.load_dataset(cfg.fairseq.dataset.gen_subset, task_cfg=saved_cfg.task, directly_extract=True, directly=cfg.fairseq.task.directly)
+    else:
+        task.load_dataset(cfg.fairseq.dataset.gen_subset, task_cfg=saved_cfg.task)
     # Set dictionary
     tgt_dict = task.target_dictionary
     logger.info(
@@ -596,6 +599,8 @@ def main(cfg: UnsupGenerateConfig, model=None):
             "blank_weight": cfg.blank_weight,
             "blank_mode": cfg.blank_mode,
         }
+    logger.info(overrides)
+    # return
 
     if model is None:
         # Load ensemble

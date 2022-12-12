@@ -9,6 +9,7 @@ import fasttext as ft
 import os
 import regex
 import sys
+import numpy as np
 
 
 def get_parser():
@@ -25,7 +26,7 @@ def get_parser():
         "--lid-threshold",
         type=float,
         help="threshold for this lang id probability",
-        default=0.4,
+        default=0.2,
     )
 
     return parser
@@ -53,16 +54,21 @@ def main():
 
     for line in sys.stdin:
         line = line.strip()
+        line = line.replace('’', '\'')
         line = filter_r.sub(" ", line)
-        line = " ".join(line.split())
+        line = line.replace("-", " ")
+        line = " ".join(line.split()).lower()
 
         if model is not None:
             lid, prob = model.predict(line, k=100)
+            # print(type(prob))
+            # print(prob)
+            # assert 1==2, f"{type(prob)}\n{prob}"
             try:
                 target_idx = lid.index(lg_label)
             except ValueError:
                 continue
-            if target_idx == 0 or prob[target_idx] >= thresh:
+            if target_idx == 0 or np.argmax(prob)==target_idx: # prob[target_idx] >= thresh or
                 print(line)
         else:
             print(line)

@@ -3,7 +3,9 @@ import yaml
 from glob import glob
 import pandas as pd
 
-len_for_bucket_root = '/home/b07502072/u-speech2speech/s2p/data/manifest/en/shuffled'
+SAMPLE_RATE = 48e3
+# len_for_bucket_root = '/home/b07502072/u-speech2speech/s2p/data/manifest/en/shuffled'
+len_for_bucket_root = '/work/b07502072/corpus/u-s2s/audio/cv4/de/w2v_manifest/train'
 
 def get_csv_fpath(root, csv_pths):
     for path in glob(os.path.join(root, "*")):
@@ -19,7 +21,7 @@ def secs_to_time(secs):
     return f"{hrs} hrs {mins} mins {secs} secs"
 
 def calculate_length(csv_pth):
-    sr = 16e3
+    sr = SAMPLE_RATE
     # total_secs = 0.0
     f_path = os.path.join(len_for_bucket_root, csv_pth)
     with open(f_path, 'r') as fr:
