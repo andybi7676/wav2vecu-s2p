@@ -8,6 +8,7 @@ source_dir=$1
 tgt_dir=$2
 model=$3
 
+FAIRSEQ_ROOT=/home/andybi7676/Desktop/wav2vecu-s2p/fairseq
 if [ -z "$4" ]
   then
     dim=64
@@ -27,22 +28,22 @@ fi
 # echo "extracting from layer $layer"
 
 train_split=train
-valid_split=valid
-test_split=asr_test
+valid_split=dev
+test_split=test
 
 all_splits=()
 
-if [[ -f "$source_dir/train.tsv" ]]; then
+if [[ -f "$source_dir/$train_split.tsv" ]]; then
     all_splits+=($train_split)
 fi
 
-if [[ -f "$source_dir/valid.tsv" ]]; then
-    all_splits+=($valid_split)
-fi
+# if [[ -f "$source_dir/$valid_split.tsv" ]]; then
+#     all_splits+=($valid_split)
+# fi
 
-if [[ -f "$source_dir/$test_split.tsv" ]]; then
-    all_splits+=($test_split)
-fi
+# if [[ -f "$source_dir/$test_split.tsv" ]]; then
+#     all_splits+=($test_split)
+# fi
 
 # echo "processing splits: $all_splits"
 
@@ -70,10 +71,10 @@ for split in $all_splits; do
     python $FAIRSEQ_ROOT/examples/hubert/simple_kmeans/dump_mfcc_feature.py \
     $tgt_dir $split 1 0 $tgt_dir/mfcc
     
-    if [[ $split = $train_split ]]; then
-        python $FAIRSEQ_ROOT/examples/hubert/simple_kmeans/learn_kmeans.py \
-        $tgt_dir/mfcc $split 1 $tgt_dir/mfcc/cls$dim $dim --percent 1
-    fi
+    # if [[ $split = $train_split ]]; then
+    #     python $FAIRSEQ_ROOT/examples/hubert/simple_kmeans/learn_kmeans.py \
+    #     $tgt_dir/mfcc $split 1 $tgt_dir/mfcc/cls$dim $dim --percent 1
+    # fi
 
     python $FAIRSEQ_ROOT/examples/hubert/simple_kmeans/dump_km_label.py \
     $tgt_dir/mfcc $split $tgt_dir/mfcc/cls$dim 1 0 $tgt_dir/mfcc/cls${dim}_idx

@@ -16,7 +16,7 @@ import soundfile as sf
 import librosa as lb
 import os.path as osp
 import multiprocessing as mp
-sys.path.append("/home/b07502072/u-speech2speech/s2p/rVADfast")
+sys.path.append("/home/andybi7676/Desktop/wav2vecu-s2p/s2p/rVADfast")
 import speechproc
 import random
 import time

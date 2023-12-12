@@ -15,6 +15,7 @@ def main():
         line = line.strip()
         line = line.replace('’', '\'')
         line = filter_r.sub(" ", line)
+        line = line.replace("  ", " ")
         line = " ".join(line.split())
         print(line.lower())
 

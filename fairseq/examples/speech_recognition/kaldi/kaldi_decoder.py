@@ -4,6 +4,21 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
+try:
+    from kaldi.asr import FasterRecognizer, LatticeFasterRecognizer
+    from kaldi.base import set_verbose_level
+    from kaldi.decoder import (
+        FasterDecoder,
+        FasterDecoderOptions,
+        LatticeFasterDecoder,
+        LatticeFasterDecoderOptions,
+    )
+    from kaldi.lat.functions import DeterminizeLatticePhonePrunedOptions
+    from kaldi.fstext import read_fst_kaldi, SymbolTable
+except:
+    warnings.warn(
+        "pykaldi is required for this functionality. Please install from https://github.com/pykaldi/pykaldi"
+    )
 
 from concurrent.futures import ThreadPoolExecutor
 import logging
@@ -54,21 +69,6 @@ class KaldiDecoder(object):
         beam: int,
         nbest: int = 1,
     ):
-        try:
-            from kaldi.asr import FasterRecognizer, LatticeFasterRecognizer
-            from kaldi.base import set_verbose_level
-            from kaldi.decoder import (
-                FasterDecoder,
-                FasterDecoderOptions,
-                LatticeFasterDecoder,
-                LatticeFasterDecoderOptions,
-            )
-            from kaldi.lat.functions import DeterminizeLatticePhonePrunedOptions
-            from kaldi.fstext import read_fst_kaldi, SymbolTable
-        except:
-            warnings.warn(
-                "pykaldi is required for this functionality. Please install from https://github.com/pykaldi/pykaldi"
-            )
 
         # set_verbose_level(2)
 

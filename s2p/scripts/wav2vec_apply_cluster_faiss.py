@@ -52,7 +52,7 @@ def get_iterator(args):
             lbls = [None] * len(files)
 
         num = len(files)
-        if "hubert" in args.checkpoint:
+        if "hubert" in args.checkpoint or "contentvec" in args.checkpoint:
             print("Use HubertFeatureReader")
             reader = HubertFeatureReader(args.checkpoint, args.layer)
         else:

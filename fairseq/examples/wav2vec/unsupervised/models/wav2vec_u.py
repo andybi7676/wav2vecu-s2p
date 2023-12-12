@@ -8,7 +8,9 @@ from enum import Enum, auto
 import math
 import numpy as np
 from typing import Tuple, List, Optional, Dict
+from collections import defaultdict
 
+import copy
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -74,6 +76,7 @@ class Wav2vec_UConfig(FairseqDataclass):
     smoothness_weight: float = 0.0
     smoothing: float = 0.0
     smoothing_one_sided: bool = False
+    # smoothing_orig: bool = False
     gradient_penalty: float = 0.0
     probabilistic_grad_penalty_slicing: bool = False
     code_penalty: float = 0.0
@@ -84,6 +87,11 @@ class Wav2vec_UConfig(FairseqDataclass):
     hard_gumbel: bool = True
     temp: Tuple[float, float, float] = (2, 0.1, 0.99995)
     input_dim: int = 128
+
+    cal_ngram_distribution: bool = False
+    ngram_weight: float = 0.0
+    ngram_ref_fpath: str = ""
+    ngram_size: int = 1000
 
     segmentation: SegmentationConfig = SegmentationConfig()
 
@@ -147,7 +155,7 @@ class UniformRandomSegmenter(Segmenter):
 
 
 class JoinSegmenter(Segmenter):
-    def logit_segment(self, logits, padding_mask):
+    def logit_segment(self, logits, padding_mask, remove_idx=None):
         preds = logits.argmax(dim=-1)
 
         if padding_mask.any():
@@ -171,6 +179,8 @@ class JoinSegmenter(Segmenter):
 
             if self.cfg.remove_zeros:
                 keep.logical_and_(u != 0)
+            if remove_idx != None:
+                keep.logical_and_(u != remove_idx)
 
             if self.training and not self.cfg.mean_pool_join:
                 u[0] = 0
@@ -440,6 +450,7 @@ class Wav2vec_U(BaseFairseqModel):
         self.cfg = cfg
         self.zero_index = target_dict.index("<SIL>") if "<SIL>" in target_dict else 0
         self.smoothness_weight = cfg.smoothness_weight
+        self.target_dict = target_dict
 
         output_size = len(target_dict)
         self.pad = target_dict.pad()
@@ -486,6 +497,53 @@ class Wav2vec_U(BaseFairseqModel):
             self.decoder = nn.Linear(d, cfg.target_dim)
             for p in self.decoder.parameters():
                 p.param_group = "generator"
+        
+        self.cal_ngram_distribution = cfg.cal_ngram_distribution
+        if self.cal_ngram_distribution:
+            self.ngram_weight = cfg.ngram_weight
+            self.ngram_ref_fpath = cfg.ngram_ref_fpath
+            self.ngram_size = cfg.ngram_size
+            self.ngram_loss_initialization()
+    
+    def ngram_loss_initialization(self, ngram=4, maxline=100000):
+        with open(self.ngram_ref_fpath, 'r') as fr:
+            counting_dict = defaultdict(lambda: 0)
+            lines = fr.readlines()[:maxline]
+            print("Counting ngram distribution...")
+            for line in lines:
+                line = line.replace('<SIL>', '')
+                line = line.replace('  ', ' ')
+                phns = line.rstrip().split()
+                for s in range(len(phns)-(ngram-1)):
+                    e = s + ngram
+                    key = tuple(phns[s:e])
+                    counting_dict[key] += 1
+        ref_ngram_counts_npy = np.array([counting_dict[key] for key in counting_dict.keys()])
+        ref_ngram_keys_npy   = np.array([key for key in counting_dict.keys()])
+        sorted_idx = np.argsort(ref_ngram_counts_npy)
+        ref_ngram_counts_sorted_npy = ref_ngram_counts_npy[sorted_idx]
+        ref_ngram_keys_sorted_npy   = ref_ngram_keys_npy[sorted_idx]
+        ref_ngram_counts_sorted_reduced_npy = np.concatenate((ref_ngram_counts_sorted_npy[:-self.ngram_size].sum(keepdims=True), ref_ngram_counts_sorted_npy[-self.ngram_size:]))
+        self.ngram_loss_ref_distribution = torch.FloatTensor(ref_ngram_counts_sorted_reduced_npy) / np.sum(ref_ngram_counts_sorted_reduced_npy)
+        self.ngram_loss_ref_keys = ref_ngram_keys_sorted_npy[-self.ngram_size:]
+        self.ngram_loss_ref_keys_idx = []
+        for key in self.ngram_loss_ref_keys:
+            idx = tuple([self.target_dict.index(phn) for phn in key])
+            self.ngram_loss_ref_keys_idx.append(idx)
+        print(self.ngram_loss_ref_distribution)
+        print(self.ngram_loss_ref_keys[:10])
+        print(self.ngram_loss_ref_keys_idx[:10])
+        # assert False, "Terminate"
+    
+    def to(self, *args, **kwargs):
+        self.ngram_loss_ref_distribution = self.ngram_loss_ref_distribution.to(*args, **kwargs)
+        print(self.ngram_loss_ref_distribution)
+        return super().to(*args, **kwargs)
+    
+    def half(self, *args, **kwargs):
+        self.ngram_loss_ref_distribution = self.ngram_loss_ref_distribution.half(*args, **kwargs)
+        print(self.ngram_loss_ref_distribution)
+        return super().half(*args, **kwargs)
 
     @classmethod
     def build_model(cls, cfg, task):
@@ -621,6 +679,7 @@ class Wav2vec_U(BaseFairseqModel):
         smoothness_loss = None
         code_pen = None
         mmi_loss = None
+        ngram_loss = None
 
         if d_step:
             loss_dense = F.binary_cross_entropy_with_logits(
@@ -672,6 +731,32 @@ class Wav2vec_U(BaseFairseqModel):
                     reduction="none",
                 )
                 mmi_loss = mmi_loss.mean() * mmi_loss.shape[0] * self.mmi_weight
+            
+            if (self.ngram_weight > 0) and (self.cal_ngram_distribution):
+                ngram_dense_x, ngram_dense_padding_mask = self.segmenter.logit_segment(
+                    orig_dense_x, orig_dense_padding_mask, remove_idx=self.target_dict.index("<SIL>")
+                )
+                # ngram_dense_x, ngram_dense_padding_mask = dense_x, dense_padding_mask
+                ngram_gumbel_x = F.gumbel_softmax(
+                    ngram_dense_x.float(), tau=self.curr_temp, hard=True
+                ).type_as(ngram_dense_x)
+                ngram_gumbel_x[ngram_dense_padding_mask] = 0.0
+                total_segments = ngram_dense_padding_mask.numel() - ngram_dense_padding_mask.sum() - ngram_dense_padding_mask.shape[0]*3
+                prob_size = self.ngram_loss_ref_distribution.shape
+                pred_ngram_counts = self.ngram_loss_ref_distribution.new_zeros(prob_size)
+                for i, key_idx in enumerate(self.ngram_loss_ref_keys_idx):
+                    pred_ngram_counts[i] = (ngram_gumbel_x[:,0:-3,key_idx[0]] * ngram_gumbel_x[:,1:-2,key_idx[1]] * ngram_gumbel_x[:,2:-1,key_idx[2]] * ngram_gumbel_x[:,3:,key_idx[3]]).sum()
+                pred_ngram_counts[-1] = total_segments - pred_ngram_counts[:-1].sum()
+                pred_ngram_counts += 10e-5 # to avoid NaN
+                pred_ngram_log_prob = (pred_ngram_counts / pred_ngram_counts.sum()).log()
+                
+                ngram_loss = F.kl_div(
+                    pred_ngram_log_prob,
+                    self.ngram_loss_ref_distribution,
+                    reduction = 'sum'
+                )
+
+
 
         result = {
             "losses": {
@@ -679,6 +764,7 @@ class Wav2vec_U(BaseFairseqModel):
                 "code_pen": code_pen,
                 "smoothness": smoothness_loss,
                 "mmi": mmi_loss,
+                "ngram": ngram_loss,
             },
             "temp": self.curr_temp,
             "code_ppl": code_perplexity,

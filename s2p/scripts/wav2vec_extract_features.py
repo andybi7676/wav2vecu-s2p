@@ -116,7 +116,7 @@ def get_iterator(args):
         files = [osp.join(root, line.split("\t")[0]) for line in lines if len(line) > 0]
 
         num = len(files)
-        if "hubert" in args.checkpoint:
+        if "hubert" in args.checkpoint or "contentvec" in args.checkpoint:
             print("Use HubertFeatureReader")
             reader = HubertFeatureReader(args.checkpoint, args.layer)
         else:

@@ -3,7 +3,8 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-KENLM_ROOT='/home/b07502072/kenlm/build/bin'
+KENLM_ROOT='/home/andybi7676/Tools/kenlm/build/bin'
+S2P_ROOT='/home/andybi7676/Desktop/wav2vecu-s2p/s2p'
 lg=$1
 text_path=$2
 train_text_path=$3
@@ -58,16 +59,21 @@ echo "min phone seen threshold is $min_phones"
 
 if test "$skip_prep" = "false"; then
   mkdir -p $target_dir
+  if [ -f "$train_text_path" ]; then
+  echo "found train text file, try to exclude overlapping lines."
   # python $FAIRSEQ_ROOT/examples/wav2vec/unsupervised/scripts/normalize_and_filter_text.py --lang $lg --fasttext-model $lid_path < $text_path | grep -v '\-\-\-' | grep -v '[0-9]' > $target_dir/lm.upper.lid.txt
-  python /home/b07502072/u-speech2speech/s2p/scripts/normalize_and_filter_text.py --lang $lg --fasttext-model $lid_path < $text_path | grep -v '\-\-\-' | grep -v '[0-9]' > $target_dir/lm.upper.lid.txt
-  mv $target_dir/lm.upper.lid.txt $target_dir/lm.upper.lid.old.txt
-  cp $train_text_path $target_dir/train.words.txt
-  sort $target_dir/train.words.txt | uniq > $target_dir/train.words.uniq.txt
-  end_line_count=$(wc -l $target_dir/lm.upper.lid.old.txt | cut -d ' ' -f1)
+    python $S2P_ROOT/scripts/normalize_and_filter_text.py --lang $lg --fasttext-model $lid_path < $text_path | grep -v '\-\-\-' | grep -v '[0-9]' > $target_dir/lm.upper.lid.txt
+    mv $target_dir/lm.upper.lid.txt $target_dir/lm.upper.lid.old.txt
+    cp $train_text_path $target_dir/train.words.txt
+    sort $target_dir/train.words.txt | uniq > $target_dir/train.words.uniq.txt
+    end_line_count=$(wc -l $target_dir/lm.upper.lid.old.txt | cut -d ' ' -f1)
 
-  cat $target_dir/lm.upper.lid.old.txt $target_dir/train.words.uniq.txt | awk '{ print FNR "\t" $0 }' | sort -k2 | uniq -u -f1 | sort -n > $target_dir/lm.upper.lid.train.uniq.txt
-  # nl -n ln $target_dir/lm.upper.lid.old.txt $target_dir/train.words.uniq.txt | sort -k2 | uniq -u -f1 | sort -n > $target_dir/lm.upper.lid.train.uniq.txt
-  awk '{if($1 <= '$end_line_count'){print $0;}}' $target_dir/lm.upper.lid.train.uniq.txt | cut -f2- > $target_dir/lm.upper.lid.txt
+    cat $target_dir/lm.upper.lid.old.txt $target_dir/train.words.uniq.txt | awk '{ print FNR "\t" $0 }' | sort -k2 | uniq -u -f1 | sort -n > $target_dir/lm.upper.lid.train.uniq.txt
+    # nl -n ln $target_dir/lm.upper.lid.old.txt $target_dir/train.words.uniq.txt | sort -k2 | uniq -u -f1 | sort -n > $target_dir/lm.upper.lid.train.uniq.txt
+    awk '{if($1 <= '$end_line_count'){print $0;}}' $target_dir/lm.upper.lid.train.uniq.txt | cut -f2- > $target_dir/lm.upper.lid.txt
+  else
+    python $S2P_ROOT/scripts/normalize_and_filter_text.py --lang $lg --fasttext-model $lid_path < $text_path | grep -v '\-\-\-' | grep -v '[0-9]' | sort -R > $target_dir/lm.upper.lid.txt
+  fi
   ##python $FAIRSEQ_ROOT/examples/wav2vec/unsupervised/scripts/normalize_and_filter_text.py --lang $lg --fasttext-model $lid_path < $text_path | grep -v '\-\-\-' | grep -v '[0-9]'
   # python $FAIRSEQ_ROOT/examples/wav2vec/unsupervised/scripts/normalize_text.py < $text_path | grep -v '\-\-\-' | grep -v '[0-9]' > $target_dir/lm.upper.lid.txt
   python $FAIRSEQ_ROOT/fairseq_cli/preprocess.py --dataset-impl mmap --trainpref $target_dir/lm.upper.lid.txt --only-source --destdir $target_dir --thresholdsrc 2 --padding-factor 1 --dict-only
@@ -76,14 +82,14 @@ if test "$skip_prep" = "false"; then
   echo "complete preprocess and create words.txt"
 
   if [ -z "$ESPEAK_PATH" ]; then
-    python /home/b07502072/u-speech2speech/s2p/scripts/g2p_wrd_to_phn.py --compact --only_phonemes < $target_dir/words.txt > $target_dir/phones.txt
+    python $S2P_ROOT/scripts/g2p_wrd_to_phn.py --compact --only_phonemes < $target_dir/words.txt > $target_dir/phones.txt
   else
     # echoing 1 into corpus will prevent the mismatch lines between lexicon and phones in case the phonemizer fails
     # one=$(echo "1" | PHONEMIZER_ESPEAK_PATH=$ESPEAK_PATH phonemize -p ' ' -w '' -l $ph_lg --language-switch remove-flags)
     # sed 's/$/ 1/' $target_dir/words.txt | PHONEMIZER_ESPEAK_PATH=$ESPEAK_PATH phonemize -o $target_dir/phones.txt -p ' ' -w '' -l $ph_lg -j 70 --language-switch remove-flags
     # echo "one is ${one}"
     # sed -i "s/${one}$//" $target_dir/phones.txt
-    python /home/b07502072/u-speech2speech/s2p/scripts/phonemize_text.py $target_dir --lang $ph_lg
+    python $S2P_ROOT/scripts/phonemize_text.py $target_dir --lang $ph_lg
   fi
   paste $target_dir/words.txt $target_dir/phones.txt > $target_dir/lexicon.lst
 else
@@ -99,7 +105,7 @@ cp $target_dir/phones/dict.txt $target_dir/phones/dict.phn.txt
 echo "<SIL> 0" >> $target_dir/phones/dict.phn.txt
 python $FAIRSEQ_ROOT/fairseq_cli/preprocess.py --dataset-impl mmap --trainpref $target_dir/phones/lm.phones.filtered.txt --workers 70 --only-source --destdir $target_dir/phones --srcdict $target_dir/phones/dict.phn.txt
 
-python ~/u-speech2speech/s2p/utils/generate_lexicon_for_kenlm_decoding.py -i $target_dir/phones/dict.phn.txt -o $target_dir/phones/lexicon.phones.lst
+python $S2P_ROOT/utils/generate_lexicon_for_kenlm_decoding.py -i $target_dir/phones/dict.phn.txt -o $target_dir/phones/lexicon.phones.lst
 
 $KENLM_ROOT/lmplz -o 4 -S 50G -T ./tmp < $target_dir/lm.upper.lid.txt --discount_fallback --prune 0 0 0 3 > $target_dir/kenlm.wrd.o40003.arpa
 $KENLM_ROOT/build_binary $target_dir/kenlm.wrd.o40003.arpa $target_dir/kenlm.wrd.o40003.bin
