@@ -3,9 +3,10 @@ from tqdm import tqdm
 
 # ref_f = "/home/b07502072/u-speech2speech/s2p/utils/asr_test.phones.txt"
 # hyp_f = "/home/b07502072/u-speech2speech/s2p/multirun/2022-04-09/14-52-16/0/asr_test/asr_test.txt"
-ref_f = "/home/b07502072/u-speech2speech/s2p/utils/goldens/cv4_de/train.phones.txt"
-hyp_f = "/home/b07502072/u-speech2speech/s2p/multirun/cv4_de/xlsr/cv_wiki_3k/cp4_gp2.0_sw0.5/seed3/kaldi_decode/phones_lm4_adj_pool_false/ckpt_best_train_500_1.4_3.0/train.txt"
-reduce_set = [chr(771), chr(720)]
+ref_f = "/home/b07502072/u-speech2speech/s2p/utils/goldens/cv4_fr/train_70h/skhc/asr_test.phones.txt"
+hyp_f = "/home/b07502072/u-speech2speech/s2p/multirun/cv4_fr/xlsr/asr_test.phones.txt"
+# reduce_set = [chr(771), chr(720)]
+reduce_set = []
 
 def read_phn_file(file_path):
     data = []

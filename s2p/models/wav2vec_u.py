@@ -43,7 +43,8 @@ class SegmentationConfig(FairseqDataclass):
 
 @dataclass
 class Wav2vec_UConfig(FairseqDataclass):
-
+    ckpt_fpath: str = ""
+    
     discriminator_kernel: int = 3
     discriminator_dilation: int = 1
     discriminator_dim: int = 256
@@ -468,6 +469,10 @@ class Wav2vec_U(BaseFairseqModel):
         self.max_temp, self.min_temp, self.temp_decay = cfg.temp
         self.curr_temp = self.max_temp
         self.update_num = 0
+        # if self.cfg.ckpt_fpath:
+        #     with open(self.cfg.ckpt_fpath, "rb") as f:
+        #         state = torch.load(f, map_location=torch.device("cpu"))
+        #     self.load_state_dict(state['model'], strict=True, model_cfg=cfg.model)
 
     @classmethod
     def build_model(cls, cfg, task):

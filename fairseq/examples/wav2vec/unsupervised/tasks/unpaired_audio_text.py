@@ -64,6 +64,9 @@ class UnpairedAudioTextConfig(FairseqDataclass):
     text_data: str = field(
         default=MISSING, metadata={"help": "path to data directory containing text"}
     )
+    min_length: Optional[int] = field(
+        default=3, metadata={"help": "min length of data"}
+    )
     max_length: Optional[int] = None
     labels: Optional[str] = field(
         default=None,
@@ -343,7 +346,7 @@ class UnpairedAudioText(FairseqTask):
             self.datasets[split] = ExtractedFeaturesDataset(
                 path=data_path,
                 split=split,
-                min_length=3,
+                min_length=0,
                 max_length=task_cfg.max_length,
                 labels=None if has_unpaired_text else task_cfg.labels,
                 label_dict=self.target_dictionary,

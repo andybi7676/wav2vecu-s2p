@@ -5,6 +5,7 @@ fairseq:
     _name: unpaired_audio_text
     labels: phn
     data: ???
+    min_length: 0
     sort_by_length: false
     shuffle: false
     text_data: ''

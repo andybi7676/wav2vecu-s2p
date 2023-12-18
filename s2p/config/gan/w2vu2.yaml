@@ -1,4 +1,7 @@
 # @package _group_
+hydra:
+  sweep:
+    subdir: w2vu2_cp${model.code_penalty}_gp${model.gradient_penalty}_sw${model.smoothness_weight}/seed${common.seed}
 
 common:
   fp16: false
@@ -10,8 +13,8 @@ common:
   suppress_crashes: false
 
 checkpoint:
-  save_interval: 10000
-  save_interval_updates: 10000
+  save_interval: 50000
+  save_interval_updates: 50000
   no_epoch_checkpoints: true
   best_checkpoint_metric: weighted_lm_ppl
   save_dir: .
@@ -32,7 +35,7 @@ task:
   aux_target_postfix: km
 
 dataset:
-  num_workers: 6
+  num_workers: 0
   batch_size: 160
   skip_invalid_size_inputs_valid_test: true
   valid_subset: valid
@@ -75,7 +78,7 @@ optimizer:
         adam_betas: [0.5,0.98]
         adam_eps: 1e-06
         weight_decay: 0.0001
-        amsgrad: false
+        # amsgrad: false
       lr_scheduler:
         _name: fixed
         warmup_updates: 0
@@ -102,6 +105,7 @@ model:
   generator_batch_norm: 30
   generator_residual: true
 
+  ncritic: 1 # num of discriminator updates per generator update. default: 1
   smoothness_weight: 1.5
   smoothing: 0
   smoothing_one_sided: false
@@ -118,10 +122,6 @@ model:
     type: JOIN
     mean_pool_join: false
     remove_zeros: false
-
-hydra:
-  sweep:
-    subdir: cp${model.code_penalty}_gp${model.gradient_penalty}_sw${model.smoothness_weight}/seed${common.seed}
 
 # hydra:
 #   job:

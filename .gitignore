@@ -1,4 +1,6 @@
 /data
+/prev_data
+/tmp
 multirun
 outputs
 lid_model

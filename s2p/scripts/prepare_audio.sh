@@ -13,16 +13,14 @@ set -o pipefail
 source_dir=$1
 tgt_dir=$2
 model=$3
-
-FAIRSEQ_ROOT=~/Desktop/wav2vecu-s2p/fairseq
-
+dim=512
+layer=14
 # if [ -z "$4" ]
 #   then
 #     dim=512
 #   else
 #     dim=$4
 # fi
-dim=512
 
 echo "using $dim dim for PCA"
 
@@ -32,7 +30,6 @@ echo "using $dim dim for PCA"
 #   else
 #     layer=$5
 # fi
-layer=14
 
 echo "extracting from layer $layer"
 
@@ -40,21 +37,21 @@ train_split=train
 valid_split=valid
 test_split=test
 
-all_splits="train valid test"
+all_splits=()
 
-# if [[ -f "$source_dir/$train_split.tsv" ]]; then
-#     all_splits+=($train_split)
-# fi
+if [[ -f "$source_dir/train.tsv" ]]; then
+    all_splits+=($train_split)
+fi
 
-# if [[ -f "$source_dir/$valid_split.tsv" ]]; then
+# if [[ -f "$source_dir/valid.tsv" ]]; then
 #     all_splits+=($valid_split)
 # fi
 
 # if [[ -f "$source_dir/$test_split.tsv" ]]; then
 #     all_splits+=($test_split)
 # fi
-
-echo "processing splits: $all_splits, dim=$dim, layer=$layer"
+all_splits="valid_small"
+echo "processing splits: $all_splits"
 
 mkdir -p $tgt_dir
 
@@ -75,10 +72,10 @@ for split in $all_splits; do
 done
 echo "Finished extract features."
 
-echo "Clustering..."
-python scripts/wav2vec_cluster_faiss.py $tgt_dir/${train_split}.tsv \
---checkpoint $model --save-dir $tgt_dir -f "CLUS128" --sample-pct 1.0
-echo "Finished clustering."
+# echo "Clustering..."
+# python scripts/wav2vec_cluster_faiss.py $tgt_dir/${train_split}.tsv \
+# --checkpoint $model --save-dir $tgt_dir -f "CLUS128" --sample-pct 1.0
+# echo "Finished clustering."
 
 for split in $all_splits; do
   python scripts/wav2vec_apply_cluster_faiss.py $tgt_dir \
@@ -86,8 +83,8 @@ for split in $all_splits; do
 done
 echo "Applied cluster features."
 
-python $FAIRSEQ_ROOT/examples/wav2vec/unsupervised/scripts/pca.py $tgt_dir/${train_split}.npy --output $tgt_dir/pca --dim $dim
-echo "Ran PCA."
+# python $FAIRSEQ_ROOT/examples/wav2vec/unsupervised/scripts/pca.py $tgt_dir/${train_split}.npy --output $tgt_dir/pca --dim $dim
+# echo "Ran PCA."
 
 for split in $all_splits; do
   python $FAIRSEQ_ROOT/examples/wav2vec/unsupervised/scripts/apply_pca.py $tgt_dir --split $split --save-dir $tgt_dir/precompute_pca$dim --pca-path $tgt_dir/pca/${dim}_pca --batch-size 1048000

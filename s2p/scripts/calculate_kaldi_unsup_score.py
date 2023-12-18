@@ -5,16 +5,17 @@ import editdistance
 import math
 import tqdm
 import argparse
+import numpy as np
 
 def parse_dir(d):
     aw, bw = d.split('/')[-1].split('_')[-2:]
     return float(aw), float(bw)
 
-def get_ppl(f_path, kenlm):
+def get_entropies(f_path, kenlm):
     lengths_t = 0
     sent_t = 0
     lm_score = 0
-    lm_ppl = float("inf")
+    lm_entropies = []
     with open(f_path, 'r') as fr:
         for line in fr:
             line.replace("<SIL>", "")
@@ -22,12 +23,11 @@ def get_ppl(f_path, kenlm):
             line = line.strip()
             words = line.split()
             lengths_t += len(words)
-            lm_score += kenlm.score(line)
+            lm_score = kenlm.score(line)
             sent_t += 1
-    lm_ppl = math.pow(
-        10, -lm_score / (lengths_t + sent_t)
-    )
-    return lm_ppl
+            lm_entropy =  -lm_score / (len(words) + 2)
+            lm_entropies.append(lm_entropy)
+    return np.array(lm_entropies)
 
 def read_file(fpath):
     lines = []
@@ -37,14 +37,14 @@ def read_file(fpath):
             lines.append(line)
     return lines
 
-def get_vt_diff(hyp_fpath, vit_trans):
+def get_vt_diffs(hyp_fpath, vit_trans):
     hyps = read_file(hyp_fpath)
-    vt_err_t = sum(
+    vt_errs = np.array([
         editdistance.eval(vt, h) for vt, h in zip(vit_trans, hyps)
-    )
+    ])
 
-    vt_length_t = sum(len(vt) for vt in vit_trans)
-    return vt_err_t / vt_length_t
+    vt_lengths = np.array([ len(vt.split()) for vt in vit_trans ])
+    return vt_errs / vt_lengths
 
 
 def main():
@@ -95,7 +95,8 @@ def main():
 
     if lm_train_data:
         print("Getting training lm_ppl......")
-        min_lm_ppl = get_ppl(lm_train_data, kenlm_model)
+        min_lm_ppl = 7.884893153191544
+        min_lm_entropy = math.log(min_lm_ppl)
         print(f"training_lm_ppl={min_lm_ppl}")
     if not save_root: return
 
@@ -112,11 +113,14 @@ def main():
         for d in tqdm.tqdm(dirs):
             aw, bw = parse_dir(d)
             hyp_fpath = osp.join(root, d, f"{subset}.txt")
-            lm_ppl = get_ppl(hyp_fpath, kenlm_model)
+            lm_entropies = get_entropies(hyp_fpath, kenlm_model)
+            # print(lm_entropies)
+            lm_ppl = math.pow(10, lm_entropies.mean())
             ppl_dict[(aw, bw)] = lm_ppl
             uer_dict[(aw, bw)] = lm_ppl
-            vt_diff = get_vt_diff(hyp_fpath, vit_trans)
-            weighted_score = math.log(lm_ppl) * max(vt_diff, min_vit_uer)
+            vt_diffs = get_vt_diffs(hyp_fpath, vit_trans)
+            # weighted_score = lm_entropies * max(vt_diff, min_vit_uer)
+            weighted_score = sum([max(lm_entorpy, min_lm_entropy) * max(vt_diff, min_vit_uer) for lm_entorpy, vt_diff in zip(lm_entropies, vt_diffs)])
             score_dict[(aw, bw)] = weighted_score
             if weighted_score <= best_score:
                 best_score = weighted_score
